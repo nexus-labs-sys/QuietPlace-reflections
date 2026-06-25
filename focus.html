@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Focus · Nexus Study Lab</title>
+  <link href="fonts/fonts.css" rel="stylesheet">
+  <style>
+    :root {
+      --bg:#0b0905;--surface:rgba(255,235,200,0.04);--surface-hover:rgba(255,235,200,0.07);
+      --border:rgba(255,220,160,0.10);--border-warm:rgba(255,200,120,0.18);
+      --accent:#e8a060;--accent2:#f0c080;--accent-dim:rgba(232,160,96,0.45);
+      --accent-glow:rgba(232,160,96,0.15);--accent-glow2:rgba(240,192,128,0.08);
+      --text:#f0e8dc;--muted:rgba(240,232,220,0.40);--muted2:rgba(240,232,220,0.22);
+      --ring-focus:#e8a060;--ring-break:#78c89a;--ring-long:#c0a0e0;
+      --ring-sixty:#f0c060;--ring-deep:#a080f0;
+      --radius:20px;--radius-sm:12px;--panel-w:320px;
+      --transition:0.4s cubic-bezier(0.4,0,0.2,1);
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-weight:300;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+    #bg-media{position:fixed;inset:0;width:100vw;height:100vh;object-fit:cover;z-index:0;opacity:0;transition:opacity 1.4s ease;pointer-events:none}
+    #bg-media.visible{opacity:1}
+    #bg-overlay{position:fixed;inset:0;background:rgba(8,5,2,0.64);z-index:1;pointer-events:none;opacity:0;transition:opacity 1.4s ease}
+    #bg-overlay.visible{opacity:1}
+    #particle-canvas{position:fixed;inset:0;width:100vw;height:100vh;z-index:0;pointer-events:none;transition:opacity 0.8s ease}
+    #particle-canvas.hidden{opacity:0}
+    #vignette{position:fixed;inset:0;z-index:2;pointer-events:none;background:radial-gradient(ellipse 80% 70% at 50% 50%,transparent 40%,rgba(5,3,1,0.7) 100%)}
+
+    /* ── DEEP FOCUS SPOTLIGHT — darkens everything outside the ring ── */
+    #deep-spotlight{
+      position:fixed;inset:0;z-index:4;pointer-events:none;
+      background:radial-gradient(ellipse 500px 500px at 50% 50%,transparent 28%,rgba(4,2,1,0.94) 72%);
+      opacity:0;transition:opacity 1.2s cubic-bezier(0.4,0,0.2,1);
+    }
+    body.deep-work-active #deep-spotlight{opacity:1}
+
+    .shell{position:relative;z-index:3;min-height:100vh;display:flex;flex-direction:column}
+
+    /* ── NAV ── */
+    nav{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:16px 28px;border-bottom:1px solid var(--border);background:rgba(8,5,2,0.55);backdrop-filter:blur(20px) saturate(110%);position:sticky;top:0;z-index:20;transition:opacity 0.7s cubic-bezier(0.4,0,0.2,1),transform 0.7s cubic-bezier(0.4,0,0.2,1)}
+    nav.deep-hide{opacity:0;pointer-events:none;transform:translateY(-10px)}
+    .nav-left{display:flex;align-items:center;gap:16px}
+    .nav-brand{font-family:'Cormorant Garamond',serif;font-size:1.05rem;letter-spacing:4px;text-transform:uppercase;color:var(--muted);text-decoration:none;white-space:nowrap}
+    .nav-brand span{color:var(--accent)}
+    .nav-center{font-family:'Cormorant Garamond',serif;font-size:0.85rem;letter-spacing:6px;text-transform:uppercase;color:var(--muted2);text-align:center}
+    .nav-right{display:flex;align-items:center;justify-content:flex-end;gap:10px}
+    #hub-btn{font-size:0.66rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);background:transparent;border:1px solid var(--border);border-radius:40px;padding:7px 16px;cursor:pointer;transition:all 0.3s;display:flex;align-items:center;gap:7px;white-space:nowrap}
+    #hub-btn:hover{color:var(--accent2);border-color:var(--border-warm);background:var(--accent-glow)}
+    #hub-btn-dot{width:5px;height:5px;border-radius:50%;background:var(--accent-dim);flex-shrink:0;box-shadow:0 0 5px var(--accent);animation:hub-pulse 3s ease-in-out infinite}
+    #hub-btn.timer-live{border-color:rgba(120,200,154,0.35);background:rgba(120,200,154,0.07)}
+    #hub-btn.timer-live #hub-btn-dot{background:#78c89a;box-shadow:0 0 6px #78c89a}
+    @keyframes hub-pulse{0%,100%{opacity:0.5}50%{opacity:1}}
+
+    /* ── STATS BAR ── */
+    #stats-bar{display:flex;align-items:center;gap:18px;padding:8px 28px;border-bottom:1px solid var(--border);background:rgba(8,5,2,0.4);backdrop-filter:blur(12px);font-size:0.65rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);transition:opacity 0.7s cubic-bezier(0.4,0,0.2,1),transform 0.7s cubic-bezier(0.4,0,0.2,1);flex-wrap:wrap}
+    #stats-bar.deep-hide{opacity:0;pointer-events:none;transform:translateY(-6px)}
+    .sbar-item{display:flex;align-items:center;gap:6px}
+    .sbar-val{color:var(--accent);font-family:'Cormorant Garamond',serif;font-size:1rem;font-weight:400;letter-spacing:0;line-height:1}
+    .sbar-streak-val{color:#78c89a}
+    .sbar-dot{width:4px;height:4px;border-radius:50%;background:var(--border)}
+    .sbar-live{display:flex;align-items:center;gap:5px;margin-left:auto}
+    .sbar-live-dot{width:5px;height:5px;border-radius:50%;background:#78c89a;box-shadow:0 0 5px #78c89a;animation:hub-pulse 2s ease-in-out infinite}
+
+    .workspace{flex:1;display:flex;min-height:0}
+    #main-grid{flex:1;display:grid;grid-template-columns:1fr var(--panel-w);min-height:0;transition:grid-template-columns var(--transition)}
+    #main-grid.panel-hidden{grid-template-columns:1fr 0px}
+    .center-col{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 36px;border-right:1px solid var(--border);transition:border-color 0.4s;min-width:0}
+    #main-grid.panel-hidden .center-col,body.deep-mode .center-col{border-right-color:transparent}
+    .side-panel{display:flex;flex-direction:column;padding:28px 20px;gap:20px;overflow-y:auto;overflow-x:hidden;border-left:1px solid var(--border);width:var(--panel-w);transition:opacity 0.5s cubic-bezier(0.4,0,0.2,1),transform 0.5s cubic-bezier(0.4,0,0.2,1);scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+    .side-panel.deep-hidden,#main-grid.panel-hidden .side-panel{opacity:0;pointer-events:none;transform:translateX(22px)}
+
+    /* ── SESSION PILLS ── */
+    .session-pills{display:flex;gap:8px;margin-bottom:36px;flex-wrap:wrap;justify-content:center;transition:opacity 0.65s cubic-bezier(0.4,0,0.2,1),transform 0.65s cubic-bezier(0.4,0,0.2,1)}
+    .session-pills.fade-out{opacity:0;pointer-events:none;transform:translateY(-12px) scale(0.96)}
+    .pill{font-size:0.65rem;letter-spacing:2px;text-transform:uppercase;padding:6px 14px;border-radius:40px;cursor:pointer;background:var(--surface);border:1px solid var(--border);color:var(--muted);transition:all 0.3s;font-family:'DM Sans',sans-serif}
+    .pill:hover{background:var(--surface-hover);color:var(--text)}
+    .pill.active{background:rgba(232,160,96,0.12);border-color:rgba(232,160,96,0.35);color:var(--accent)}
+    .pill.active.mode-break{background:rgba(120,200,154,0.10);border-color:rgba(120,200,154,0.35);color:var(--ring-break)}
+    .pill.active.mode-long{background:rgba(192,160,224,0.10);border-color:rgba(192,160,224,0.35);color:var(--ring-long)}
+    .pill.active.mode-sixty{background:rgba(240,192,96,0.12);border-color:rgba(240,192,96,0.35);color:var(--ring-sixty)}
+    body.deep-work-active .session-pills{opacity:0;pointer-events:none;transform:translateY(-12px) scale(0.96)}
+
+    /* ── RING ── */
+    .ring-wrap{position:relative;width:260px;height:260px;margin-bottom:32px;transition:width 0.75s cubic-bezier(0.34,1.56,0.64,1),height 0.75s cubic-bezier(0.34,1.56,0.64,1)}
+    body.deep-work-active .ring-wrap{width:360px;height:360px}
+    .ring-wrap svg{width:100%;height:100%;transform:rotate(-90deg)}
+    #ring-track{fill:none;stroke:rgba(255,220,160,0.07);stroke-width:3.5}
+    #ring-fill{fill:none;stroke:var(--ring-focus);stroke-width:3.5;stroke-linecap:round;stroke-dasharray:754;stroke-dashoffset:0;transition:stroke-dashoffset 1s linear,stroke 0.9s ease,filter 0.9s ease}
+    #ring-glow{fill:none;stroke:var(--ring-focus);stroke-width:8;stroke-linecap:round;stroke-dasharray:754;stroke-dashoffset:0;opacity:0.10;transition:stroke-dashoffset 1s linear,stroke 0.9s ease}
+    .ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+    #timer-display{font-family:'Cormorant Garamond',serif;font-size:4rem;font-weight:300;letter-spacing:5px;line-height:1;color:var(--text);transition:font-size 0.75s cubic-bezier(0.34,1.56,0.64,1)}
+    body.deep-work-active #timer-display{font-size:5.8rem}
+    #session-label{font-size:0.6rem;letter-spacing:3.5px;text-transform:uppercase;color:var(--muted);transition:opacity 0.5s,color 0.5s}
+    body.deep-work-active #session-label{color:var(--ring-deep);opacity:0.7}
+    #xp-flash{font-family:'Cormorant Garamond',serif;font-size:1.4rem;font-weight:300;color:var(--accent);letter-spacing:2px;opacity:0;transition:opacity 0.4s,transform 0.6s;transform:translateY(0px);pointer-events:none;min-height:28px;text-align:center}
+    #xp-flash.show{opacity:1;transform:translateY(-8px)}
+
+    /* Deep work ring: purple glow */
+    body.deep-work-active #ring-fill{stroke:var(--ring-deep);filter:drop-shadow(0 0 22px var(--ring-deep))}
+    body.deep-work-active #ring-glow{stroke:var(--ring-deep)}
+
+    /* Breathing aura behind ring */
+    #ring-aura{
+      position:absolute;inset:-30px;border-radius:50%;
+      background:radial-gradient(ellipse at 50% 50%,var(--ring-deep) 0%,transparent 68%);
+      opacity:0;transition:opacity 1.3s ease;pointer-events:none;z-index:0;
+    }
+    @keyframes ring-breathe{0%,100%{opacity:0.10}50%{opacity:0.24}}
+    body.deep-work-active .ring-wrap #ring-aura{opacity:0.16;animation:ring-breathe 4.5s ease-in-out infinite}
+
+    /* ── CONTROLS ── */
+    .controls{display:flex;align-items:center;gap:12px;margin-bottom:24px;transition:opacity 0.65s cubic-bezier(0.4,0,0.2,1),transform 0.65s cubic-bezier(0.4,0,0.2,1)}
+    body.deep-work-active .controls{opacity:0;pointer-events:none;transform:translateY(8px)}
+    .ctrl-btn{width:46px;height:46px;border-radius:50%;background:var(--surface);border:1px solid var(--border);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.3s;font-size:16px}
+    .ctrl-btn:hover{background:var(--surface-hover);transform:scale(1.07)}
+    #play-btn{width:60px;height:60px;font-size:19px;background:rgba(232,160,96,0.10);border-color:rgba(232,160,96,0.30);color:var(--accent)}
+    #play-btn:hover{background:rgba(232,160,96,0.20)}
+    #play-btn.running{color:var(--accent2);border-color:rgba(240,192,128,0.40);background:rgba(240,192,128,0.12)}
+    body.deep-work-active #play-btn{background:rgba(160,128,240,0.12);border-color:rgba(160,128,240,0.35);color:var(--ring-deep)}
+
+    /* ── FOCUS MSG & DOTS ── */
+    #focus-msg{font-family:'Cormorant Garamond',serif;font-size:1rem;font-style:italic;color:var(--muted);letter-spacing:0.5px;min-height:24px;transition:opacity 0.8s;text-align:center}
+    body.deep-work-active #focus-msg{opacity:0}
+    .session-dots{display:flex;gap:7px;margin-top:20px;transition:opacity 0.65s cubic-bezier(0.4,0,0.2,1),transform 0.65s cubic-bezier(0.4,0,0.2,1)}
+    body.deep-work-active .session-dots,.session-dots.fade-out{opacity:0;transform:translateY(6px)}
+    .dot{width:7px;height:7px;border-radius:50%;background:var(--border);transition:all 0.5s}
+    .dot.done{background:var(--accent);box-shadow:0 0 6px var(--accent)}
+
+    /* ── DEEP FOCUS BUTTON — works for ALL modes ── */
+    #deep-work-btn{
+      margin-top:24px;
+      font-size:0.66rem;letter-spacing:2.5px;text-transform:uppercase;
+      color:rgba(160,128,240,0.75);
+      background:rgba(160,128,240,0.06);
+      border:1px solid rgba(160,128,240,0.22);
+      border-radius:40px;padding:10px 22px;cursor:pointer;
+      transition:opacity 0.55s cubic-bezier(0.4,0,0.2,1),
+                 transform 0.55s cubic-bezier(0.4,0,0.2,1),
+                 background 0.3s,border-color 0.3s,color 0.3s;
+      display:flex;align-items:center;gap:8px;font-family:'DM Sans',sans-serif
+    }
+    #deep-work-btn:hover{background:rgba(160,128,240,0.14);border-color:rgba(160,128,240,0.45);color:rgba(160,128,240,1)}
+    #deep-work-btn.hidden{opacity:0;pointer-events:none;transform:translateY(10px)}
+    body.deep-work-active #deep-work-btn{opacity:0;pointer-events:none}
+
+    #deep-work-status{margin-top:18px;display:flex;flex-direction:column;align-items:center;gap:8px;opacity:0;pointer-events:none;transform:translateY(12px);transition:opacity 0.7s cubic-bezier(0.4,0,0.2,1),transform 0.7s cubic-bezier(0.4,0,0.2,1)}
+    #deep-work-status.visible{opacity:1;pointer-events:all;transform:translateY(0)}
+    .dw-badge{font-size:0.62rem;letter-spacing:3px;text-transform:uppercase;color:var(--ring-deep);background:rgba(160,128,240,0.08);border:1px solid rgba(160,128,240,0.28);border-radius:40px;padding:5px 16px;display:flex;align-items:center;gap:7px}
+    #dw-exit-btn{font-size:0.62rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted2);background:transparent;border:1px solid var(--border);border-radius:40px;padding:6px 16px;cursor:pointer;transition:all 0.3s;font-family:'DM Sans',sans-serif;position:relative;z-index:10}
+    #dw-exit-btn:hover{color:var(--muted);border-color:var(--border-warm)}
+
+    /* ── SIDE PANEL ── */
+    .panel-section{display:flex;flex-direction:column;gap:10px}
+    .panel-heading{font-size:0.58rem;letter-spacing:3.5px;text-transform:uppercase;color:var(--muted2)}
+    .glass-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);backdrop-filter:blur(12px);overflow:hidden;transition:border-color 0.3s}
+    .glass-card:hover{border-color:var(--border-warm)}
+    .duration-card{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;gap:12px}
+    .duration-val{font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:300;color:var(--accent);line-height:1}
+    .duration-lbl{font-size:0.58rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:3px}
+    .duration-mode{font-size:0.64rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted2);text-align:right}
+    .duration-mode-val{color:var(--accent-dim);font-size:0.78rem;letter-spacing:0;font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:400}
+    .streak-mini{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:14px 16px}
+    .streak-mini-item{text-align:center}
+    .streak-mini-val{font-family:'Cormorant Garamond',serif;font-size:1.6rem;font-weight:300;color:var(--accent);line-height:1}
+    .streak-mini-lbl{font-size:0.55rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted2);margin-top:3px}
+    .music-url-row{display:flex;align-items:center;padding:10px 13px;border-bottom:1px solid var(--border);gap:8px}
+    .music-url-row input{flex:1;min-width:0;background:transparent;border:none;outline:none;font-family:'DM Sans',sans-serif;font-size:0.7rem;font-weight:300;color:var(--muted);caret-color:var(--accent)}
+    .music-url-row input::placeholder{color:var(--muted2)}
+    .music-url-row input:focus{color:var(--text)}
+    .yt-load-btn{flex-shrink:0;font-size:0.6rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent-dim);background:var(--accent-glow2);border:1px solid rgba(232,160,96,0.22);border-radius:20px;padding:4px 10px;cursor:pointer;transition:all 0.3s;font-family:'DM Sans',sans-serif}
+    .yt-load-btn:hover{background:var(--accent-glow);color:var(--accent)}
+    .music-track{display:flex;align-items:center;gap:10px;padding:12px 13px 6px}
+    .track-art{width:38px;height:38px;border-radius:9px;flex-shrink:0;background:linear-gradient(135deg,#1a1208,#120c04);border:1px solid var(--border);overflow:hidden;position:relative;display:flex;align-items:center;justify-content:center}
+    .track-art img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;opacity:0;transition:opacity .5s}
+    .track-art img.loaded{opacity:1}
+    .track-art .art-fb{font-size:15px;position:relative;z-index:1;transition:opacity .4s}
+    .track-art.has-thumb .art-fb{opacity:0}
+    .track-art.playing::after{content:'';position:absolute;inset:0;background:rgba(232,160,96,.12);animation:pulse-art 2s ease-in-out infinite;z-index:2}
+    @keyframes pulse-art{0%,100%{opacity:.3}50%{opacity:1}}
+    .track-info{flex:1;min-width:0}
+    .track-name{font-size:0.82rem;color:var(--text);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:opacity .3s}
+    .track-name.fade{opacity:.2}
+    .track-artist{font-size:0.66rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #music-play-btn{width:30px;height:30px;border-radius:50%;flex-shrink:0;background:rgba(232,160,96,.08);border:1px solid rgba(232,160,96,.22);color:var(--accent);cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;transition:all .3s}
+    #music-play-btn:hover{background:rgba(232,160,96,.18)}
+    #music-play-btn:disabled{opacity:.3;cursor:default;pointer-events:none}
+    .music-nav-row{display:flex;align-items:center;justify-content:center;gap:6px;padding:4px 13px}
+    .music-nav-btn{width:24px;height:24px;border-radius:50%;background:transparent;border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;transition:all .25s}
+    .music-nav-btn:hover{background:var(--surface-hover);color:var(--text)}
+    .music-nav-btn:disabled{opacity:.2;pointer-events:none}
+    .yt-progress-wrap{padding:2px 13px 5px}
+    .yt-progress-bar{width:100%;height:2px;border-radius:2px;background:var(--border);cursor:pointer}
+    .yt-progress-bar:hover{height:3px}
+    .yt-progress-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--accent),var(--accent2));width:0%;transition:width 1s linear;pointer-events:none}
+    .yt-status-row{display:flex;align-items:center;gap:6px;padding:2px 13px 8px}
+    .yt-status-dot{width:5px;height:5px;border-radius:50%;background:var(--border);flex-shrink:0;transition:background .4s}
+    .yt-status-dot.live{background:#78c89a;box-shadow:0 0 4px #78c89a;animation:dot-blink 2s ease-in-out infinite}
+    .yt-status-dot.error{background:#e08060}
+    @keyframes dot-blink{0%,100%{opacity:1}50%{opacity:.35}}
+    .yt-status-txt{font-size:0.6rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .vol-row{display:flex;align-items:center;gap:8px;padding:2px 13px 12px}
+    .vol-icon{font-size:11px;color:var(--muted)}
+    input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:2px;border-radius:2px;cursor:pointer;background:linear-gradient(to right,var(--accent) var(--pct,70%),var(--border) var(--pct,70%))}
+    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;border-radius:50%;background:var(--accent);box-shadow:0 0 5px var(--accent-dim)}
+    .amb-list{display:flex;flex-direction:column;gap:5px;padding:10px 13px 13px}
+    .amb-item{display:flex;align-items:center;gap:9px;background:rgba(255,235,200,0.02);border:1px solid transparent;border-radius:10px;padding:7px 10px;cursor:pointer;transition:all .3s}
+    .amb-item:hover{background:rgba(255,235,200,0.05);border-color:var(--border)}
+    .amb-item.playing{background:rgba(120,200,154,.07);border-color:rgba(120,200,154,.25)}
+    .amb-icon{font-size:14px;flex-shrink:0}
+    .amb-name{flex:1;font-size:0.74rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:color .3s}
+    .amb-item.playing .amb-name{color:var(--ring-break)}
+    .amb-stop{flex-shrink:0;font-size:9px;color:var(--muted2);opacity:.6}
+    .amb-vol-row{display:flex;align-items:center;gap:8px;padding:0 13px 12px}
+    .amb-vol-lbl{font-size:0.58rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted2);flex-shrink:0}
+    .amb-vol-row input[type=range]{background:linear-gradient(to right,var(--ring-break) var(--apct,40%),var(--border) var(--apct,40%))}
+    .amb-vol-row input[type=range]::-webkit-slider-thumb{background:var(--ring-break);box-shadow:0 0 5px rgba(120,200,154,.5)}
+    .bg-chips{display:flex;flex-wrap:wrap;gap:6px;padding:10px 13px 13px}
+    .bg-chip{font-size:0.6rem;letter-spacing:1px;text-transform:uppercase;padding:5px 11px;border-radius:20px;cursor:pointer;background:var(--surface);border:1px solid var(--border);color:var(--muted);transition:all .3s;white-space:nowrap;font-family:'DM Sans',sans-serif}
+    .bg-chip:hover{background:var(--surface-hover);color:var(--text)}
+    .bg-chip.active{background:rgba(232,160,96,.10);border-color:rgba(232,160,96,.35);color:var(--accent)}
+    .bg-chip.none-chip.active{background:rgba(255,235,200,.05);border-color:var(--border-warm);color:var(--text)}
+    #layout-btn{width:32px;height:32px;border-radius:8px;background:var(--surface);border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:all .3s;position:relative}
+    #layout-btn:hover{background:var(--surface-hover);color:var(--text)}
+    #layout-btn .layout-tip{position:absolute;top:38px;right:0;font-size:0.58rem;letter-spacing:1.5px;text-transform:uppercase;background:rgba(8,5,2,0.92);border:1px solid var(--border);border-radius:6px;padding:4px 8px;white-space:nowrap;color:var(--muted);pointer-events:none;opacity:0;transition:opacity 0.2s}
+    #layout-btn:hover .layout-tip{opacity:1}
+    body.layout-bottom .workspace{flex-direction:column}
+    body.layout-bottom #main-grid{grid-template-columns:1fr}
+    body.layout-bottom .center-col{border-right:none;border-bottom:1px solid var(--border)}
+    body.layout-bottom .side-panel{display:none}
+    #bottom-panel{display:none;flex-direction:row;border-top:1px solid var(--border);background:rgba(8,5,2,0.85);backdrop-filter:blur(20px);height:200px;flex-shrink:0;overflow:hidden}
+    body.layout-bottom #bottom-panel{display:flex}
+    body.deep-mode #bottom-panel,body.deep-work-active #bottom-panel{display:none}
+    .bp-col{flex:1;padding:16px 20px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:10px;min-width:0;overflow-y:auto}
+    .bp-col:last-child{border-right:none}
+    .bp-col-head{font-size:0.58rem;letter-spacing:3px;text-transform:uppercase;color:var(--muted2);flex-shrink:0}
+    body.layout-hidden #main-grid{grid-template-columns:1fr}
+    body.layout-hidden .side-panel{display:none}
+
+    /* ── FLOATING EXIT BUTTON (light deep mode only) ── */
+    #deep-exit-btn{
+      position:fixed;bottom:28px;right:28px;
+      font-size:0.68rem;letter-spacing:2px;text-transform:uppercase;
+      color:var(--muted);background:rgba(8,5,2,0.75);
+      border:1px solid var(--border);border-radius:40px;padding:10px 22px;
+      cursor:pointer;z-index:200;
+      transition:all .45s;backdrop-filter:blur(16px);
+      opacity:0;pointer-events:none;transform:translateY(10px);
+      font-family:'DM Sans',sans-serif
+    }
+    #deep-exit-btn.visible{opacity:1;pointer-events:all;transform:translateY(0)}
+    #deep-exit-btn:hover{color:var(--text);background:rgba(8,5,2,.92)}
+    body.deep-work-active #deep-exit-btn{opacity:0!important;pointer-events:none!important}
+
+    /* ── NOTIFY ── */
+    #notify{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(16px);background:rgba(14,10,5,.94);border:1px solid var(--border);backdrop-filter:blur(24px);border-radius:40px;padding:10px 22px;color:var(--text);z-index:300;opacity:0;transition:all .5s;pointer-events:none;white-space:nowrap;font-family:'Cormorant Garamond',serif;font-size:0.98rem;letter-spacing:1px}
+    #notify.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+    @keyframes dw-pulse-bg{0%,100%{background:#0b0905}50%{background:#080512}}
+    body.deep-work-active{animation:dw-pulse-bg 10s ease-in-out infinite}
+    body.deep-mode{background:#070504}
+    .discord-music-notice{padding:10px 13px 12px;font-size:0.65rem;color:var(--muted2);letter-spacing:1px;font-style:italic;text-align:center}
+
+    @media(max-width:780px){
+      #main-grid{grid-template-columns:1fr!important}
+      .center-col{border-right:none;border-bottom:1px solid var(--border)}
+      .side-panel{width:100%;border-left:none}
+      nav{padding:12px 16px}
+      .nav-center{display:none}
+      .ring-wrap{width:230px;height:230px}
+      body.deep-work-active .ring-wrap{width:290px;height:290px}
+      #timer-display{font-size:3.5rem}
+      body.deep-work-active #timer-display{font-size:4.5rem}
+      #stats-bar{padding:8px 16px;gap:12px}
+    }
+  </style>
+</head>
+<body class="layout-side">
+
+<img id="bg-media" src="" alt="" aria-hidden="true">
+<div id="bg-overlay"></div>
+<canvas id="particle-canvas"></canvas>
+<div id="vignette"></div>
+<div id="deep-spotlight"></div>
+
+<div class="shell" id="app-shell">
+
+  <nav id="main-nav">
+    <div class="nav-left">
+      <a href="streak.html" class="nav-brand">Nexus <span>Study</span></a>
+    </div>
+    <div class="nav-center">Deep Focus</div>
+    <div class="nav-right">
+      <button id="layout-btn">
+        <span id="layout-icon">&#8863;</span>
+        <span class="layout-tip" id="layout-tip">Switch to bottom bar</span>
+      </button>
+      <button id="hub-btn">
+        <span id="hub-btn-dot"></span>Study Hub
+      </button>
+      <!-- Deep Mode button removed from header as requested -->
+    </div>
+  </nav>
+
+  <div id="stats-bar">
+    <div class="sbar-item"><span class="sbar-val sbar-streak-val" id="sb-streak">0</span><span>&#128293; streak</span></div>
+    <div class="sbar-dot"></div>
+    <div class="sbar-item"><span class="sbar-val" id="sb-today">0m</span><span>today</span></div>
+    <div class="sbar-dot"></div>
+    <div class="sbar-item"><span class="sbar-val" id="sb-xp">0</span><span>XP</span></div>
+    <div class="sbar-dot"></div>
+    <div class="sbar-item"><span class="sbar-val" id="sb-sessions">0</span><span>sessions today</span></div>
+    <div class="sbar-live"><div class="sbar-live-dot"></div><span>synced with hub</span></div>
+  </div>
+
+  <div class="workspace">
+    <div id="main-grid">
+      <div class="center-col">
+        <div class="session-pills" id="session-pills">
+          <button class="pill active" data-mode="focus">Focus</button>
+          <button class="pill mode-break" data-mode="break">Short Break</button>
+          <button class="pill mode-long" data-mode="long">Long Break</button>
+          <button class="pill mode-sixty" data-mode="sixty">60 min</button>
+        </div>
+        <div class="ring-wrap">
+          <div id="ring-aura"></div>
+          <svg viewBox="-14 -14 268 268" xmlns="http://www.w3.org/2000/svg">
+            <circle id="ring-track" cx="120" cy="120" r="110"/>
+            <circle id="ring-glow" cx="120" cy="120" r="110"/>
+            <circle id="ring-fill" cx="120" cy="120" r="110"/>
+          </svg>
+          <div class="ring-center">
+            <div id="timer-display">25:00</div>
+            <div id="session-label">Focus Session</div>
+          </div>
+        </div>
+        <div class="controls" id="controls-row">
+          <button class="ctrl-btn" id="reset-btn" title="Reset">&#8635;</button>
+          <button class="ctrl-btn" id="play-btn">&#9654;</button>
+          <button class="ctrl-btn" id="skip-btn" title="Skip">&#8677;</button>
+        </div>
+        <div id="focus-msg">Begin when you are ready.</div>
+        <div id="xp-flash"></div>
+        <div class="session-dots" id="session-dots">
+          <div class="dot" id="d0"></div><div class="dot" id="d1"></div>
+          <div class="dot" id="d2"></div><div class="dot" id="d3"></div>
+        </div>
+
+        <!-- Deep Focus button — works for ANY active timer mode -->
+        <button id="deep-work-btn">&#11041; Deep Focus &mdash; 25 min</button>
+
+        <div id="deep-work-status">
+          <div class="dw-badge">&#128274; Deep Focus &middot; UI Locked</div>
+          <button id="dw-exit-btn">End Deep Focus</button>
+        </div>
+      </div>
+
+      <div class="side-panel" id="side-panel">
+        <div class="panel-section">
+          <div class="panel-heading">Live Stats</div>
+          <div class="glass-card">
+            <div class="streak-mini">
+              <div class="streak-mini-item"><div class="streak-mini-val" id="panel-streak">0</div><div class="streak-mini-lbl">&#128293; Streak</div></div>
+              <div class="streak-mini-item"><div class="streak-mini-val" id="panel-today">0m</div><div class="streak-mini-lbl">Today</div></div>
+              <div class="streak-mini-item"><div class="streak-mini-val" id="panel-xp">0</div><div class="streak-mini-lbl">XP</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="panel-section">
+          <div class="panel-heading">Current Session</div>
+          <div class="glass-card">
+            <div class="duration-card">
+              <div><div class="duration-val" id="duration-val">0</div><div class="duration-lbl">Minutes today</div></div>
+              <div style="text-align:right"><div class="duration-mode">Mode</div><div class="duration-mode-val" id="duration-mode-val">Focus Session</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="panel-section" id="music-section">
+          <div class="panel-heading">Music</div>
+          <div class="glass-card" id="music-card"></div>
+        </div>
+        <div class="panel-section">
+          <div class="panel-heading">Ambient</div>
+          <div class="glass-card">
+            <div class="amb-list" id="amb-list"></div>
+            <div class="amb-vol-row" id="amb-vol-row" style="display:none">
+              <span class="amb-vol-lbl">Vol</span>
+              <input type="range" min="0" max="100" value="40" id="amb-vol-slider" style="--apct:40%">
+            </div>
+          </div>
+        </div>
+        <div class="panel-section" id="bg-section">
+          <div class="panel-heading">Background</div>
+          <div class="glass-card"><div class="bg-chips" id="bg-chips"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="bottom-panel">
+    <div class="bp-col">
+      <div class="bp-col-head">Music</div>
+      <div style="display:flex;gap:6px">
+        <input type="text" id="bp-yt-url" placeholder="YouTube URL..." autocomplete="off" spellcheck="false" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:5px 9px;font-family:inherit;font-size:0.65rem;font-weight:300;color:var(--muted);caret-color:var(--accent);flex:1;outline:none">
+        <button class="yt-load-btn" id="bp-load-btn">Load</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="width:32px;height:32px;border-radius:7px;flex-shrink:0;background:linear-gradient(135deg,#1a1208,#120c04);border:1px solid var(--border);overflow:hidden;position:relative;display:flex;align-items:center;justify-content:center">
+          <img id="bp-track-thumb" src="" alt="" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;opacity:0;transition:opacity .5s">
+          <span style="font-size:12px;position:relative;z-index:1">&#9835;</span>
+        </div>
+        <div style="flex:1;min-width:0"><div id="bp-track-name" style="font-size:0.78rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">No playlist</div><div id="bp-track-artist" style="font-size:0.64rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Paste URL above</div></div>
+        <button id="bp-music-play-btn" disabled style="width:28px;height:28px;border-radius:50%;flex-shrink:0;background:rgba(232,160,96,.08);border:1px solid rgba(232,160,96,.22);color:var(--accent);cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center">&#9654;</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button class="music-nav-btn" disabled id="bp-prev-btn">&#9198;</button>
+        <button class="music-nav-btn" disabled id="bp-next-btn">&#9197;</button>
+        <div style="flex:1;height:2px;border-radius:2px;background:var(--border);cursor:pointer" id="bp-progress-bar"><div id="bp-progress-fill" style="height:100%;border-radius:2px;background:linear-gradient(90deg,var(--accent),var(--accent2));width:0%;transition:width 1s linear;pointer-events:none"></div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:var(--muted)">&#9835;</span><input type="range" min="0" max="100" value="70" id="bp-vol-slider" style="flex:1;appearance:none;-webkit-appearance:none;height:2px;border-radius:2px;cursor:pointer;background:linear-gradient(to right,var(--accent) 70%,var(--border) 70%)"></div>
+    </div>
+    <div class="bp-col"><div class="bp-col-head">Ambient</div><div id="bp-amb-chips" style="display:flex;flex-wrap:wrap;gap:5px"></div></div>
+    <div class="bp-col"><div class="bp-col-head">Background</div><div id="bp-bg-chips" style="display:flex;flex-wrap:wrap;gap:5px"></div></div>
+  </div>
+
+</div>
+
+<button id="deep-exit-btn">&#10005; Exit Deep Mode</button>
+<div id="notify"></div>
+<script src="js/discord-sdk.js"></script>
+<script src="js/firebase-bundle.js"></script>
+<script>
+/* ====== DISCORD DETECT ====== */
+const IS_DISCORD = (
+  window.location.hostname.includes('discordsays.com') ||
+  window.self !== window.top ||
+  new URLSearchParams(window.location.search).has('frame_id')
+);
+
+/* ====== DISCORD SDK INIT ====== */
+// discord-sdk.js is loaded via <script src="js/discord-sdk.js"> in the <head>
+// No dynamic script injection needed — that's blocked by Discord's CSP anyway.
+// We only need to call patchUrlMappings and that's it for focus.html.
+// Authentication already happened in login.html — user is in localStorage.
+
+if (IS_DISCORD && window.DiscordSDKLib && typeof window.DiscordSDKLib.patchUrlMappings === 'function') {
+  try {
+    window.DiscordSDKLib.patchUrlMappings([
+      { prefix: '/worker', target: 'green-thunder-d974.priyan-node.workers.dev' },
+    ]);
+    console.log('[NSL] Discord URL mappings patched ✓');
+  } catch (e) {
+    console.warn('[NSL] patchUrlMappings failed (non-fatal):', e.message);
+  }
+}
+
+/* ====== AUTH / UID GUARD ======
+   focus.html has no login UI of its own — it trusts whatever
+   identity streak.html (or login.html) already established.
+   This guard does two things:
+   1. If there's no signed-in user at all, send them to login.
+   2. If the cached uid doesn't match the active user's uid
+      (e.g. this tab was left open from a previous account),
+      wipe the stale study data before anything reads it.
+*/
+const NSL_UID_KEY = 'nsl_active_uid';
+
+(function nslAuthGuard() {
+  let user = null;
+  try { user = JSON.parse(localStorage.getItem('nsl_user') || 'null'); } catch (_) {}
+
+  // if (!user) {
+  //   window.location.href = 'login.html' + window.location.search;
+  //   throw new Error('[NSL] No signed-in user — redirecting to login.');
+  // }
+  if (!user) {
+  console.log(
+    '[NSL] Auth guard disabled'
+  );
+  return;
+}
+
+  if (user.guest) return; // guests have no uid to compare against
+
+  const prevUid = localStorage.getItem(NSL_UID_KEY);
+  if (prevUid && user.uid && prevUid !== user.uid) {
+    console.info('[NSL] Stale session detected on focus.html — clearing cached study data.');
+    localStorage.removeItem('nsl_data');
+    localStorage.removeItem('nsl_timer_state');
+    localStorage.removeItem('nsl_timer_clock');
+  }
+  if (user.uid) localStorage.setItem(NSL_UID_KEY, user.uid);
+})();
+
+/* ====== SHARED DATA LAYER ====== */
+const NSL_KEY = 'nsl_data';
+const NSL_TIMER_KEY = 'nsl_timer_state';
+
+function nslDefaults(){return{streak:{current:0,longest:0,totalDays:0,lastStudyDate:null,weekDays:[]},xp:{today:0,level:1,totalXP:0},sessions:[],moods:{},goals:[],todos:[],reminders:[{id:1,name:'Morning review',time:'08:00',icon:'\u{1F4D6}',on:true},{id:2,name:'Pomodoro break',time:'10:25',icon:'\u2615',on:true},{id:3,name:'Evening wrap-up',time:'21:00',icon:'\u{1F319}',on:false}],notes:'',version:1};}
+function nslLoad(){try{const r=localStorage.getItem(NSL_KEY);if(!r)return nslDefaults();const p=JSON.parse(r),d=nslDefaults();return{streak:Object.assign({},d.streak,p.streak||{}),xp:Object.assign({},d.xp,p.xp||{}),sessions:Array.isArray(p.sessions)?p.sessions:[],moods:p.moods||{},goals:Array.isArray(p.goals)?p.goals:[],todos:Array.isArray(p.todos)?p.todos:[],reminders:Array.isArray(p.reminders)?p.reminders:d.reminders,notes:p.notes||'',version:p.version||1};}catch(_){return nslDefaults();}}
+function nslSave(d){try{localStorage.setItem(NSL_KEY,JSON.stringify(d));}catch(_){}}
+function nslRecordSession(mins,label){if(mins<1)return 0;const data=nslLoad(),today=new Date().toDateString();data.sessions.push({date:today,duration:mins,label:label||'Focus Session',ts:Date.now()});const xp=mins*5;data.xp.today+=xp;data.xp.totalXP+=xp;data.xp.level=Math.max(1,Math.floor(1+data.xp.totalXP/500));const last=data.streak.lastStudyDate,nd=new Date();nd.setHours(0,0,0,0);const dow=new Date().getDay();if(!data.streak.weekDays.includes(dow))data.streak.weekDays.push(dow);if(last!==today){if(last){const ld=new Date(last);ld.setHours(0,0,0,0);const diff=Math.round((nd-ld)/86400000);data.streak.current=diff===1?data.streak.current+1:1;}else{data.streak.current=1;}if(data.streak.current>data.streak.longest)data.streak.longest=data.streak.current;data.streak.totalDays++;data.streak.lastStudyDate=today;}if(data.streak.weekDays.length>7)data.streak.weekDays=data.streak.weekDays.slice(-7);nslSave(data);updateStatsBar(data);return xp;}
+
+/* ====== TIMER STATE BROADCAST ====== */
+function broadcastTimerState() {
+  try {
+    const state = {
+      running, remaining, totalSecs, currentMode, timerEndsAt,
+      label: MODES[currentMode] ? MODES[currentMode].label : 'Focus Session',
+      color: MODES[currentMode] ? MODES[currentMode].color : '#e8a060',
+      deepWorkActive, sessionStartTime, ts: Date.now()
+    };
+    localStorage.setItem(NSL_TIMER_KEY, JSON.stringify(state));
+  } catch(_) {}
+}
+function clearTimerBroadcast() {
+  try { localStorage.removeItem(NSL_TIMER_KEY); } catch(_) {}
+}
+function updateHubBtn() {
+  const btn = document.getElementById('hub-btn');
+  if (!btn) return;
+  if (running) { btn.classList.add('timer-live'); btn.title = 'Timer running'; }
+  else { btn.classList.remove('timer-live'); btn.title = ''; }
+}
+
+/* ====== STATS BAR ====== */
+function updateStatsBar(data){data=data||nslLoad();const today=new Date().toDateString(),ts=data.sessions.filter(s=>s.date===today),tm=ts.reduce((a,s)=>a+(s.duration||0),0),td=tm>=60?Math.floor(tm/60)+'h'+(tm%60)+'m':tm+'m';const sv=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};sv('sb-streak',data.streak.current);sv('sb-today',td);sv('sb-xp',data.xp.today);sv('sb-sessions',ts.length);sv('panel-streak',data.streak.current);sv('panel-today',td);sv('panel-xp',data.xp.today);sv('duration-val',tm);}
+
+/* ====== PARTICLES ====== */
+const pCanvas=document.getElementById('particle-canvas'),pCtx=pCanvas.getContext('2d');let particles=[];
+function initParticles(){pCanvas.width=window.innerWidth;pCanvas.height=window.innerHeight;particles=[];for(let i=0;i<55;i++)particles.push({x:Math.random()*pCanvas.width,y:Math.random()*pCanvas.height,r:Math.random()*1.1+0.25,dx:(Math.random()-.5)*.12,dy:(Math.random()-.5)*.12,tw:Math.random()*Math.PI*2});}
+initParticles();window.addEventListener('resize',initParticles);
+function drawParticles(){pCtx.clearRect(0,0,pCanvas.width,pCanvas.height);for(const p of particles){p.x+=p.dx;p.y+=p.dy;p.tw+=.018;if(p.x<0)p.x=pCanvas.width;if(p.x>pCanvas.width)p.x=0;if(p.y<0)p.y=pCanvas.height;if(p.y>pCanvas.height)p.y=0;const a=.18+.22*Math.sin(p.tw);pCtx.beginPath();pCtx.arc(p.x,p.y,p.r,0,Math.PI*2);pCtx.fillStyle='rgba(232,160,96,'+a+')';pCtx.shadowColor='rgba(232,160,96,0.6)';pCtx.shadowBlur=8;pCtx.fill();pCtx.shadowBlur=0;}requestAnimationFrame(drawParticles);}
+drawParticles();
+
+/* ====== BACKGROUND ====== */
+const BG_FILES=['focus/night.gif','focus/warm.gif', 'focus/train.webm', 'focus/trees.gif'];
+const bgMediaEl=document.getElementById('bg-media'),bgOverlay=document.getElementById('bg-overlay');
+let currentBgFile=null;
+function buildBgPicker(){const w=document.getElementById('bg-chips');w.innerHTML='';const n=document.createElement('button');n.className='bg-chip none-chip active';n.textContent='Particles';n.addEventListener('click',()=>setGifBg(null));w.appendChild(n);BG_FILES.forEach(f=>{const c=document.createElement('button');c.className='bg-chip';c.textContent=f.replace(/\.(gif|webp|mp4)$/i,'').replace(/[-_]/g,' ');c.addEventListener('click',()=>setGifBg(f));w.appendChild(c);});if(!BG_FILES.length)document.getElementById('bg-section').style.display='none';}
+buildBgPicker();
+function setGifBg(file){currentBgFile=file;document.querySelectorAll('.bg-chip').forEach(c=>{const m=!file?c.classList.contains('none-chip'):c.textContent.toLowerCase()===file.replace(/\.(gif|webp|mp4)$/i,'').replace(/[-_]/g,' ').toLowerCase();c.classList.toggle('active',m);});if(!file){bgMediaEl.classList.remove('visible');bgOverlay.classList.remove('visible');pCanvas.classList.remove('hidden');return;}pCanvas.classList.add('hidden');bgMediaEl.classList.remove('visible');bgMediaEl.src='';setTimeout(()=>{bgMediaEl.src=file;bgMediaEl.onload=()=>{bgMediaEl.classList.add('visible');bgOverlay.classList.add('visible');};bgMediaEl.onerror=()=>{showNotify('Background not found: '+file);setGifBg(null);};setTimeout(()=>{if(!bgMediaEl.classList.contains('visible')){bgMediaEl.classList.add('visible');bgOverlay.classList.add('visible');}},400);},80);showNotify('Background set.');}
+
+/* ====== YOUTUBE ====== */
+let ytPlayer=null,ytReady=false,ytPlaying=false,ytLoaded=false,ytVolume=70,ytProgressIv=null,ytPollIv=null,ytLastVid=null;
+
+function buildMusicPanel(){
+  const card=document.getElementById('music-card');
+  if(IS_DISCORD){
+    card.innerHTML=`
+      <div style="padding:10px 13px 6px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <div class="track-art" id="lofi-art"><span class="art-fb">&#9835;</span></div>
+          <div class="track-info">
+            <div class="track-name" id="lofi-track-name">Loading playlist…</div>
+            <div class="track-artist" id="lofi-track-status">—</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <button class="music-nav-btn" id="lofi-prev">&#9198;</button>
+          <button class="music-nav-btn" id="lofi-shuffle" title="Shuffle">&#8635;</button>
+          <button id="lofi-play-btn" style="flex:1;padding:7px;border-radius:20px;background:rgba(232,160,96,0.10);border:1px solid rgba(232,160,96,0.30);color:var(--accent);cursor:pointer;font-size:12px;letter-spacing:1px">&#9654; Play</button>
+          <button class="music-nav-btn" id="lofi-next">&#9197;</button>
+        </div>
+        <div style="height:2px;border-radius:2px;background:var(--border);margin-bottom:8px">
+          <div id="lofi-progress" style="height:100%;border-radius:2px;background:linear-gradient(90deg,var(--accent),var(--accent2));width:0%;transition:width 1s linear"></div>
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap" id="lofi-categories"></div>
+        <div style="max-height:130px;overflow-y:auto;display:flex;flex-direction:column;gap:4px" id="lofi-track-list"></div>
+        <div class="vol-row" style="margin-top:8px">
+          <span class="vol-icon">&#9835;</span>
+          <input type="range" min="0" max="100" value="70" id="lofi-vol" style="--pct:70%">
+        </div>
+      </div>`;
+    let tracks=[],lofiAudio=null,lofiIdx=0,lofiPlaying=false,activeCategory='All';
+    fetch('music/playlist.json').then(r=>r.json()).then(data=>{tracks=data;buildCategoryFilter();buildTrackList('All');lofiLoad(0);showNotify('Playlist loaded — '+tracks.length+' tracks');}).catch(()=>showNotify('Could not load playlist.json'));
+    function buildCategoryFilter(){const cats=['All',...new Set(tracks.map(t=>t.category).filter(Boolean))];const wrap=document.getElementById('lofi-categories');if(!wrap)return;wrap.innerHTML='';cats.forEach(cat=>{const btn=document.createElement('button');btn.className='bg-chip'+(cat==='All'?' active':'');btn.textContent=cat;btn.addEventListener('click',()=>{activeCategory=cat;wrap.querySelectorAll('.bg-chip').forEach(b=>b.classList.toggle('active',b.textContent===cat));buildTrackList(cat);});wrap.appendChild(btn);});}
+    function buildTrackList(category){const list=document.getElementById('lofi-track-list');if(!list)return;list.innerHTML='';const filtered=tracks.filter(t=>category==='All'||t.category===category);filtered.forEach(t=>{const idx=tracks.indexOf(t);const item=document.createElement('div');item.style.cssText='padding:6px 10px;border-radius:8px;font-size:0.72rem;color:var(--muted);cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:8px';item.dataset.idx=idx;item.innerHTML=`<span style="font-size:10px;color:var(--muted2)">${String(idx+1).padStart(2,'0')}</span><span>${t.label}</span>`;item.addEventListener('click',()=>{lofiLoad(idx);if(lofiPlaying){lofiAudio.play();}else{lofiToggle();}});item.addEventListener('mouseenter',()=>item.style.background='var(--surface)');item.addEventListener('mouseleave',()=>item.style.background=idx===lofiIdx?'var(--accent-glow2)':'transparent');list.appendChild(item);});}
+    function lofiLoad(idx){if(lofiAudio){lofiAudio.pause();}lofiIdx=idx;const t=tracks[idx];if(!t)return;lofiAudio=new Audio(t.file);lofiAudio.volume=+document.getElementById('lofi-vol').value/100;lofiAudio.addEventListener('ended',()=>{lofiLoad((lofiIdx+1)%tracks.length);if(lofiPlaying)lofiAudio.play().catch(()=>{});});lofiAudio.addEventListener('timeupdate',()=>{if(!lofiAudio.duration)return;const pct=(lofiAudio.currentTime/lofiAudio.duration)*100;const p=document.getElementById('lofi-progress');if(p)p.style.width=pct+'%';});const tn=document.getElementById('lofi-track-name');if(tn)tn.textContent=t.label;const ts=document.getElementById('lofi-track-status');if(ts)ts.textContent=t.category||'';document.querySelectorAll('#lofi-track-list div[data-idx]').forEach(el=>{el.style.background=+el.dataset.idx===idx?'var(--accent-glow2)':'transparent';el.style.color=+el.dataset.idx===idx?'var(--accent)':'var(--muted)';});}
+    function lofiToggle(){if(!lofiAudio||tracks.length===0)return;if(lofiPlaying){lofiAudio.pause();lofiPlaying=false;const b=document.getElementById('lofi-play-btn');if(b)b.innerHTML='&#9654; Play';const s=document.getElementById('lofi-track-status');if(s)s.textContent='Paused';}else{lofiAudio.play().catch(()=>showNotify('Could not play.'));lofiPlaying=true;const b=document.getElementById('lofi-play-btn');if(b)b.innerHTML='&#9646;&#9646; Pause';const s=document.getElementById('lofi-track-status');if(s)s.textContent='Now playing';}}
+    function lofiShuffle(){if(tracks.length===0)return;const idx=Math.floor(Math.random()*tracks.length);lofiLoad(idx);if(lofiPlaying)lofiAudio.play();showNotify('Shuffled ✶');}
+    document.getElementById('lofi-play-btn').addEventListener('click',lofiToggle);
+    document.getElementById('lofi-prev').addEventListener('click',()=>{lofiLoad((lofiIdx-1+tracks.length)%tracks.length);if(lofiPlaying)lofiAudio.play();});
+    document.getElementById('lofi-next').addEventListener('click',()=>{lofiLoad((lofiIdx+1)%tracks.length);if(lofiPlaying)lofiAudio.play();});
+    document.getElementById('lofi-shuffle').addEventListener('click',lofiShuffle);
+    document.getElementById('lofi-vol').addEventListener('input',e=>{if(lofiAudio)lofiAudio.volume=e.target.value/100;e.target.style.setProperty('--pct',e.target.value+'%');});
+    return;
+  }
+  card.innerHTML=`
+    <div class="music-url-row">
+      <input type="text" id="yt-url-input" placeholder="YouTube playlist or video URL..." autocomplete="off" spellcheck="false">
+      <button class="yt-load-btn" id="yt-load-btn">Load</button>
+    </div>
+    <div class="music-track">
+      <div class="track-art" id="track-art"><img id="track-thumb" src="" alt=""><span class="art-fb">&#9835;</span></div>
+      <div class="track-info"><div class="track-name" id="track-name">No playlist loaded</div><div class="track-artist" id="track-artist">Paste a URL above</div></div>
+      <button id="music-play-btn" disabled>&#9654;</button>
+    </div>
+    <div class="music-nav-row">
+      <button class="music-nav-btn" id="prev-btn" disabled>&#9198;</button>
+      <button class="music-nav-btn" id="next-btn" disabled>&#9197;</button>
+    </div>
+    <div class="yt-progress-wrap"><div class="yt-progress-bar" id="yt-progress-bar"><div class="yt-progress-fill" id="yt-progress-fill"></div></div></div>
+    <div class="yt-status-row"><div class="yt-status-dot" id="yt-status-dot"></div><div class="yt-status-txt" id="yt-status-txt">Waiting for playlist</div></div>
+    <div class="vol-row"><span class="vol-icon">&#9835;</span><input type="range" min="0" max="100" value="70" id="vol-slider"></div>`;
+  const s=document.createElement('script');s.src='https://www.youtube.com/iframe_api';document.head.appendChild(s);
+  const ytWrap=document.createElement('div');ytWrap.id='yt-player-wrap';ytWrap.style.cssText='position:fixed;left:-500px;bottom:-500px;width:200px;height:112px;z-index:-1;pointer-events:none;overflow:hidden';ytWrap.innerHTML='<div id="yt-player"></div>';document.body.appendChild(ytWrap);
+  document.getElementById('yt-load-btn').addEventListener('click', loadYTUrl);
+  document.getElementById('yt-url-input').addEventListener('keydown', e=>{if(e.key==='Enter')loadYTUrl();});
+  document.getElementById('music-play-btn').addEventListener('click', ytTogglePlay);
+  document.getElementById('prev-btn').addEventListener('click', ytPrev);
+  document.getElementById('next-btn').addEventListener('click', ytNext);
+  document.getElementById('yt-progress-bar').addEventListener('click', ytSeek);
+  document.getElementById('vol-slider').addEventListener('input', e=>ytSetVolume(e.target.value));
+  document.getElementById('vol-slider').style.setProperty('--pct','70%');
+}
+buildMusicPanel();
+
+window.onYouTubeIframeAPIReady=function(){ytPlayer=new YT.Player('yt-player',{height:'112',width:'200',playerVars:{autoplay:0,controls:0,disablekb:1,modestbranding:1,rel:0,iv_load_policy:3},events:{onReady:()=>{ytReady=true;ytPlayer.setVolume(ytVolume);},onStateChange:onYTState,onError:onYTError}});};
+function onYTState(e){const S=YT.PlayerState;if(e.data===S.PLAYING){ytPlaying=true;setMusicUI('II',true,'live','Now playing');startProgress();pollTrack();}else if(e.data===S.PAUSED){ytPlaying=false;setMusicUI('>',false,'','Paused');stopProgress();}else if(e.data===S.BUFFERING){setYtStatus('Loading...');}else if(e.data===S.ENDED){ytPlaying=false;setMusicUI('>',false,'','Ended');stopProgress();}else if(e.data===S.CUED||e.data===S.UNSTARTED){setYtStatus('Ready');updateTrackMeta();}}
+function onYTError(e){const m={2:'Invalid URL',5:'HTML5 error',100:'Not found',101:'Embedding disabled',150:'Embedding disabled'};showNotify(m[e.data]||'YouTube error');setYtStatusDot('error');setYtStatus('Error');}
+function setMusicUI(icon,playing,dotCls,txt){const b=document.getElementById('music-play-btn');if(b)b.textContent=icon;const a=document.getElementById('track-art');if(a)a.classList.toggle('playing',playing);setYtStatusDot(dotCls);setYtStatus(txt);}
+function setYtStatusDot(c){const e=document.getElementById('yt-status-dot');if(e)e.className='yt-status-dot'+(c?' '+c:'');}
+function setYtStatus(t){const e=document.getElementById('yt-status-txt');if(e)e.textContent=t;}
+function parseYTUrl(raw){raw=raw.trim();if(!/^https?:\/\//i.test(raw))raw='https://'+raw;try{const u=new URL(raw);return{listId:u.searchParams.get('list'),videoId:u.hostname==='youtu.be'?u.pathname.slice(1).split('?')[0]:u.searchParams.get('v')};}catch(_){return{listId:(raw.match(/[?&]list=([A-Za-z0-9_-]+)/)||[])[1]||null,videoId:(raw.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/)||[])[1]||null};}}
+function loadYTUrl(){if(!ytReady){showNotify('Player initialising...');return;}const inp=document.getElementById('yt-url-input');const val=inp?inp.value.trim():'';if(!val){showNotify('Paste a YouTube URL first.');return;}const{listId,videoId}=parseYTUrl(val);if(!listId&&!videoId){showNotify('No video/playlist ID found.');return;}setYtStatus('Loading...');setTrackDisplay('Loading...','');clearThumb();['music-play-btn','prev-btn','next-btn'].forEach(id=>{const e=document.getElementById(id);if(e)e.disabled=false;});if(listId){ytPlayer.loadPlaylist({listType:'playlist',list:listId,index:0,startSeconds:0});showNotify('Playlist loading...');}else{ytPlayer.loadVideoById(videoId,0);showNotify('Video loading...');}ytLoaded=true;ytPlayer.setVolume(ytVolume);}
+function ytTogglePlay(){if(!ytReady||!ytLoaded)return;ytPlaying?ytPlayer.pauseVideo():ytPlayer.playVideo();}
+function ytNext(){if(ytReady&&ytLoaded)ytPlayer.nextVideo();}
+function ytPrev(){if(ytReady&&ytLoaded)ytPlayer.previousVideo();}
+function ytSetVolume(v){ytVolume=+v;const s=document.getElementById('vol-slider');if(s)s.style.setProperty('--pct',v+'%');if(ytReady)ytPlayer.setVolume(ytVolume);}
+function ytSeek(e){if(!ytReady||!ytLoaded)return;const b=document.getElementById('yt-progress-bar');ytPlayer.seekTo((e.offsetX/b.clientWidth)*ytPlayer.getDuration(),true);}
+function startProgress(){stopProgress();ytProgressIv=setInterval(()=>{if(!ytReady||!ytPlaying)return;const d=ytPlayer.getDuration(),c=ytPlayer.getCurrentTime();if(d>0){const pf=document.getElementById('yt-progress-fill');if(pf)pf.style.width=((c/d)*100)+'%';}},1000);}
+function stopProgress(){if(ytProgressIv){clearInterval(ytProgressIv);ytProgressIv=null;}}
+function pollTrack(){if(ytPollIv)clearInterval(ytPollIv);ytPollIv=setInterval(()=>{if(!ytReady)return;try{const d=ytPlayer.getVideoData();if(d&&d.video_id&&d.video_id!==ytLastVid){ytLastVid=d.video_id;updateTrackMeta();}}catch(_){}},1500);}
+function updateTrackMeta(){if(!ytReady)return;try{const d=ytPlayer.getVideoData();if(!d||!d.title)return;let song=d.title,artist=d.author||'';const m=song.match(/^(.+?)\s*[-\u2013\u2014]\s*(.+)$/);if(m){artist=m[1].trim();song=m[2].trim();}song=song.replace(/\s*[\(\[][^\)\]]{0,60}[\)\]]/g,'').trim();artist=artist.replace(/\s*[\(\[][^\)\]]{0,60}[\)\]]/g,'').trim();if(song.length>44)song=song.slice(0,42)+'...';if(artist.length>38)artist=artist.slice(0,36)+'...';setTrackDisplay(song||d.title,artist);if(d.video_id)loadThumb(d.video_id);}catch(_){}}
+function setTrackDisplay(name,artist){const tn=document.getElementById('track-name');if(tn){tn.classList.add('fade');setTimeout(()=>{tn.textContent=name||'--';tn.classList.remove('fade');},200);}const ta=document.getElementById('track-artist');if(ta)ta.textContent=artist||'';const bn=document.getElementById('bp-track-name');if(bn)bn.textContent=name||'--';const ba=document.getElementById('bp-track-artist');if(ba)ba.textContent=artist||'';}
+function loadThumb(vid){const img=document.getElementById('track-thumb'),art=document.getElementById('track-art');if(!img)return;img.onload=()=>{img.classList.add('loaded');art&&art.classList.add('has-thumb');};img.onerror=()=>{img.classList.remove('loaded');art&&art.classList.remove('has-thumb');};img.src='https://img.youtube.com/vi/'+vid+'/mqdefault.jpg';const bi=document.getElementById('bp-track-thumb');if(bi)bi.src='https://img.youtube.com/vi/'+vid+'/mqdefault.jpg';}
+function clearThumb(){const img=document.getElementById('track-thumb'),art=document.getElementById('track-art');if(!img)return;img.src='';img.classList.remove('loaded');art&&art.classList.remove('has-thumb');}
+
+/* ====== AMBIENT ====== */
+const AMBIENT_SOUNDS=[{file:'focus/rain.mp3',label:'Rain',icon:'🌧'},{file:'focus/cafe.mp3',label:'Cafe',icon:'☕'},{file:'focus/ocean.mp3',label:'Ocean',icon:'🌊'},{file:'focus/night.mp3',label:'Night',icon:'🌙'},{file:'focus/fire.mp3',label:'Fireplace',icon:'🔥'}];
+let ambFiles=AMBIENT_SOUNDS.map(s=>({...s,audio:null,playing:false})),ambVolume=40,ambActive=null;
+function renderAmbient(){const list=document.getElementById('amb-list');list.innerHTML='';if(!ambFiles.length){list.innerHTML='<div style="padding:10px 13px;font-size:.68rem;color:var(--muted);font-style:italic">No ambient files.</div>';return;}ambFiles.forEach((f,i)=>{const item=document.createElement('div');item.className='amb-item'+(f.playing?' playing':'');item.addEventListener('click',()=>toggleAmb(i));item.innerHTML='<span class="amb-icon">'+f.icon+'</span><span class="amb-name">'+f.label+'</span><span class="amb-stop">'+(f.playing?'&#9724;':'')+'</span>';list.appendChild(item);});document.getElementById('amb-vol-row').style.display='flex';}
+function toggleAmb(i){ambFiles[i].playing?stopAmb(i):(ambActive!==null&&ambActive!==i&&stopAmb(ambActive),playAmb(i));}
+function playAmb(i){const f=ambFiles[i];if(!f.audio){f.audio=new Audio(f.file);f.audio.addEventListener('ended',()=>{if(f.playing){f.audio.currentTime=0;f.audio.play().catch(()=>{})}});}f.audio.volume=ambVolume/100;f.audio.play().catch(()=>showNotify('Could not play: '+f.file));f.playing=true;ambActive=i;renderAmbient();showNotify(f.label+' playing.');}
+function stopAmb(i){const f=ambFiles[i];if(f.audio){f.audio.pause();f.audio.currentTime=0;}f.playing=false;if(ambActive===i)ambActive=null;renderAmbient();}
+function setAmbientVolume(v){ambVolume=+v;document.getElementById('amb-vol-slider').style.setProperty('--apct',v+'%');ambFiles.forEach(f=>{if(f.audio)f.audio.volume=ambVolume/100;});}
+renderAmbient();
+
+/* ====== TIMER ====== */
+const MODES={
+  focus: {label:'Focus Session',  secs:25*60, color:'#e8a060'},
+  break: {label:'Short Break',    secs:5*60,  color:'#78c89a'},
+  long:  {label:'Long Break',     secs:15*60, color:'#c0a0e0'},
+  sixty: {label:'60 Min Session', secs:60*60, color:'#f0c060'},
+  deep:  {label:'Deep Work',      secs:90*60, color:'#a080f0'}
+};
+const FOCUS_MSGS=["Breathe. Then begin.","One thing at a time.","The work is the practice.","Quiet mind, clear path.","Stay. You're doing well.","Let nothing else exist.","This moment is enough.","Presence is the practice.","Deep work, deep peace.","Return, gently, always."];
+const DEEP_MSGS=["You are locked in.","No distractions exist here.","Depth over breadth, always.","This is your work. Honor it.","Silence is the sound of deep work.","Flow lives here.","Let the world fall away.","Only this. Only now."];
+
+let currentMode='focus',totalSecs=MODES.focus.secs,remaining=totalSecs,running=false,interval=null,pomodoroInCycle=0,msgIdx=0,deepWorkActive=false,deepMode=false,sessionStartTime=null,timerEndsAt=null;
+
+const NSL_CLOCK_KEY='nsl_timer_clock';
+const C=2*Math.PI*110;
+const $timer=document.getElementById('timer-display'),$label=document.getElementById('session-label'),$ring=document.getElementById('ring-fill'),$ringGlw=document.getElementById('ring-glow'),$msg=document.getElementById('focus-msg'),$playBtn=document.getElementById('play-btn');
+const fmt=s=>String(Math.floor(Math.max(0,s)/60)).padStart(2,'0')+':'+String(Math.max(0,s)%60).padStart(2,'0');
+
+function saveClockState(){
+  if(!running){localStorage.removeItem(NSL_CLOCK_KEY);return;}
+  try{localStorage.setItem(NSL_CLOCK_KEY,JSON.stringify({timerEndsAt,totalSecs,currentMode,sessionStartTime,deepWorkActive,pomodoroInCycle}));}catch(_){}
+}
+function restoreClockState(){
+  try{
+    const raw=localStorage.getItem(NSL_CLOCK_KEY);
+    if(!raw)return false;
+    const s=JSON.parse(raw);
+    if(!s||!s.timerEndsAt)return false;
+    const nowRemaining=Math.floor((s.timerEndsAt-Date.now())/1000);
+    if(nowRemaining<=0){
+      localStorage.removeItem(NSL_CLOCK_KEY);
+      currentMode=s.currentMode||'focus';totalSecs=MODES[currentMode].secs;remaining=0;
+      sessionStartTime=s.sessionStartTime||null;deepWorkActive=s.deepWorkActive||false;pomodoroInCycle=s.pomodoroInCycle||0;
+      return 'ended';
+    }
+    currentMode=s.currentMode||'focus';totalSecs=s.totalSecs||MODES[currentMode].secs;remaining=nowRemaining;
+    timerEndsAt=s.timerEndsAt;sessionStartTime=s.sessionStartTime||null;deepWorkActive=s.deepWorkActive||false;pomodoroInCycle=s.pomodoroInCycle||0;
+    return 'running';
+  }catch(_){return false;}
+}
+
+function updateRing(){
+  const off=C*(1-remaining/totalSecs);
+  $ring.style.strokeDashoffset=$ringGlw.style.strokeDashoffset=off;
+  if(!deepWorkActive){
+    const col=MODES[currentMode].color;
+    $ring.style.stroke=$ringGlw.style.stroke=col;
+    $ring.style.filter='drop-shadow(0 0 12px '+col+')';
+  }
+}
+function updateDisplay(){$timer.textContent=fmt(remaining);updateRing();}
+
+function updateDeepWorkBtn(){
+  const btn=document.getElementById('deep-work-btn');
+  if(!btn)return;
+  const mins=Math.round(MODES[currentMode].secs/60);
+  btn.innerHTML='&#11041; Deep Focus &mdash; '+mins+' min';
+}
+
+function switchMode(mode){
+  if(deepWorkActive)return;
+  if(running)stopTimer();
+  currentMode=mode;totalSecs=MODES[mode].secs;remaining=totalSecs;timerEndsAt=null;
+  $label.textContent=MODES[mode].label;
+  document.querySelectorAll('.pill').forEach(p=>p.classList.toggle('active',p.dataset.mode===mode));
+  updateDisplay();
+  $msg.textContent=(mode==='focus'||mode==='sixty')?'Begin when you are ready.':'Rest well.';
+  document.getElementById('duration-mode-val').textContent=MODES[mode].label;
+  updateDeepWorkBtn();
+}
+
+function toggleTimer(){running?stopTimer():startTimer();}
+
+function startTimer(){
+  running=true;
+  $playBtn.textContent='II';$playBtn.classList.add('running');
+  sessionStartTime=sessionStartTime||Date.now();
+  timerEndsAt=Date.now()+(remaining*1000);
+  saveClockState();broadcastTimerState();updateHubBtn();
+  deepWorkActive?showMsg(DEEP_MSGS):showMsg(FOCUS_MSGS);
+  if(!IS_DISCORD&&ytLoaded&&ytReady&&!ytPlaying){try{ytPlayer.playVideo();}catch(_){}}
+  interval=setInterval(()=>{
+    const nowRemaining=Math.floor((timerEndsAt-Date.now())/1000);
+    if(nowRemaining<=0){
+      remaining=0;updateDisplay();clearInterval(interval);running=false;timerEndsAt=null;
+      localStorage.removeItem(NSL_CLOCK_KEY);broadcastTimerState();onSessionEnd();return;
+    }
+    remaining=nowRemaining;updateDisplay();broadcastTimerState();saveClockState();
+  },1000);
+}
+
+function stopTimer(){
+  running=false;clearInterval(interval);timerEndsAt=null;
+  $playBtn.textContent='▶';$playBtn.classList.remove('running');
+  if(sessionStartTime&&['focus','sixty','deep'].includes(currentMode)){
+    const el=Math.floor((Date.now()-sessionStartTime)/60000);
+    if(el>=1){const xp=nslRecordSession(el,MODES[currentMode].label+' (partial)');if(xp)flashXP(xp);}
+  }
+  sessionStartTime=null;localStorage.removeItem(NSL_CLOCK_KEY);broadcastTimerState();updateHubBtn();
+}
+
+function resetTimer(){
+  if(deepWorkActive)return;
+  if(running)stopTimer();
+  remaining=totalSecs;timerEndsAt=null;updateDisplay();
+  $msg.textContent='Begin when you are ready.';sessionStartTime=null;
+  localStorage.removeItem(NSL_CLOCK_KEY);clearTimerBroadcast();updateHubBtn();
+}
+function skipSession(){if(deepWorkActive)return;if(running)stopTimer();onSessionEnd();}
+
+function onSessionEnd(){
+  $playBtn.textContent='▶';$playBtn.classList.remove('running');playBell();
+  const elMins=sessionStartTime?Math.max(1,Math.round((Date.now()-sessionStartTime)/60000)):Math.round(totalSecs/60);
+  sessionStartTime=null;timerEndsAt=null;
+  localStorage.removeItem(NSL_CLOCK_KEY);clearTimerBroadcast();
+  if(deepWorkActive){
+    const xp=nslRecordSession(elMins,MODES[currentMode].label+' (Deep Focus)');
+    if(xp)flashXP(xp);exitDeepWork();showNotify('Deep Focus complete. Remarkable.');return;
+  }
+  if(currentMode==='focus'||currentMode==='sixty'){
+    const xp=nslRecordSession(elMins,MODES[currentMode].label);
+    if(xp)flashXP(xp);pomodoroInCycle++;updateDots();
+    if(pomodoroInCycle>=4){pomodoroInCycle=0;showNotify('4 sessions done. Long break earned.');switchMode('long');}
+    else{showNotify('Done! +'+xp+' XP. Short break.');switchMode('break');}
+  } else if(currentMode==='break'||currentMode==='long'){
+    showNotify('Break over. Return to the work.');switchMode('focus');
+  } else {
+    showNotify('Session complete.');switchMode('focus');
+  }
+}
+
+function flashXP(amount){const el=document.getElementById('xp-flash');if(!el)return;el.textContent='+'+amount+' XP';el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2000);}
+function showMsg(pool){$msg.style.opacity='0';setTimeout(()=>{$msg.textContent=pool[msgIdx%pool.length];$msg.style.opacity='1';msgIdx++;},400);setTimeout(()=>{if(running)showMsg(pool);},deepWorkActive?120000:180000);}
+function updateDots(){for(let i=0;i<4;i++)document.getElementById('d'+i).classList.toggle('done',i<pomodoroInCycle);}
+
+/* ====== DEEP WORK — works for ANY timer mode ====== */
+function enterDeepWork(){
+  if(deepWorkActive)return;
+  if(running)stopTimer();
+  sessionStartTime=null;
+  deepWorkActive=true;
+
+  // Use whatever timer mode is currently selected — no forced 90 min
+  // totalSecs and currentMode are already set correctly
+  remaining=totalSecs;
+  timerEndsAt=null;
+
+  // Step 1: fade out nav & stats bar
+  document.getElementById('main-nav').classList.add('deep-hide');
+  document.getElementById('stats-bar').classList.add('deep-hide');
+
+  // Step 2: 200ms later, activate deep-work body class (spotlight, ring expansion, bg pulse)
+  setTimeout(()=>{
+    document.body.classList.add('deep-work-active','deep-mode');
+  },200);
+
+  // Step 3: slide panel away
+  setTimeout(()=>{
+    document.getElementById('main-grid').classList.add('panel-hidden');
+    document.getElementById('side-panel').classList.add('deep-hidden');
+  },280);
+
+  // Step 4: show locked badge, auto-start timer
+  setTimeout(()=>{
+    document.getElementById('deep-work-btn').classList.add('hidden');
+    document.getElementById('deep-work-status').classList.add('visible');
+    updateDisplay();
+    showNotify('Deep Focus. Everything else fades.');
+    startTimer();
+  },500);
+}
+
+function exitDeepWork(){
+  stopTimer();
+  deepWorkActive=false;
+
+  // Reverse all deep work UI changes
+  document.body.classList.remove('deep-work-active','deep-mode');
+  ['main-nav','stats-bar'].forEach(id=>document.getElementById(id).classList.remove('deep-hide'));
+  document.getElementById('main-grid').classList.remove('panel-hidden');
+  document.getElementById('side-panel').classList.remove('deep-hidden');
+  document.getElementById('deep-work-btn').classList.remove('hidden');
+  document.getElementById('deep-work-status').classList.remove('visible');
+
+  updateStatsBar();
+  switchMode('focus');
+  showNotify('Deep Focus ended. Welcome back.');
+}
+
+// Light visual immersion mode (no timer lock)
+function toggleDeep(){
+  if(deepWorkActive)return;
+  deepMode=!deepMode;
+  document.body.classList.toggle('deep-mode',deepMode);
+  ['main-nav','stats-bar'].forEach(id=>document.getElementById(id).classList.toggle('deep-hide',deepMode));
+  ['session-pills','session-dots'].forEach(id=>document.getElementById(id).classList.toggle('fade-out',deepMode));
+  document.getElementById('side-panel').classList.toggle('deep-hidden',deepMode);
+  document.getElementById('deep-exit-btn').classList.toggle('visible',deepMode);
+  showNotify(deepMode?'Immersion mode. Everything else fades.':'Returning to the light.');
+}
+
+/* ====== BELL ====== */
+function playBell(){try{const ctx=new(window.AudioContext||window.webkitAudioContext)();[0,.3,.6].forEach((delay,i)=>{const o=ctx.createOscillator(),g=ctx.createGain();o.frequency.value=[523.25,659.25,783.99][i];o.type='sine';g.gain.setValueAtTime(.28,ctx.currentTime+delay);g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+delay+2.2);o.connect(g);g.connect(ctx.destination);o.start(ctx.currentTime+delay);o.stop(ctx.currentTime+delay+2.5);});}catch(_){}}
+
+/* ====== NOTIFY ====== */
+let ntTimer=null;
+function showNotify(msg){const el=document.getElementById('notify');el.textContent=msg;el.classList.add('show');if(ntTimer)clearTimeout(ntTimer);ntTimer=setTimeout(()=>el.classList.remove('show'),3500);}
+
+/* ====== LAYOUT ====== */
+const LAYOUTS=['layout-side','layout-bottom','layout-hidden'],LAYOUT_ICONS=['&#8863;','&#8864;','&#8865;'],LAYOUT_TIPS=['Switch to bottom bar','Hide panel','Show side panel'];
+let layoutIdx=0;
+function cycleLayout(){if(deepMode||deepWorkActive)return;document.body.classList.remove(LAYOUTS[layoutIdx]);layoutIdx=(layoutIdx+1)%LAYOUTS.length;document.body.classList.add(LAYOUTS[layoutIdx]);document.getElementById('layout-icon').innerHTML=LAYOUT_ICONS[layoutIdx];document.getElementById('layout-tip').textContent=LAYOUT_TIPS[layoutIdx];if(LAYOUTS[layoutIdx]==='layout-bottom')renderBottomPanel();showNotify(layoutIdx===0?'Side panel.':layoutIdx===1?'Bottom bar.':'Panel hidden.');}
+function renderBottomPanel(){const bpAmb=document.getElementById('bp-amb-chips');if(bpAmb){bpAmb.innerHTML='';ambFiles.forEach((f,i)=>{const c=document.createElement('button');c.className='bg-chip'+(f.playing?' active':'');c.addEventListener('click',()=>toggleAmb(i));c.textContent=f.icon+' '+f.label;bpAmb.appendChild(c);});}const bpBg=document.getElementById('bp-bg-chips');if(bpBg){bpBg.innerHTML='';const n=document.createElement('button');n.className='bg-chip none-chip'+(!currentBgFile?' active':'');n.textContent='Particles';n.addEventListener('click',()=>setGifBg(null));bpBg.appendChild(n);BG_FILES.forEach(file=>{const c=document.createElement('button');c.className='bg-chip'+(currentBgFile===file?' active':'');c.textContent=file.replace(/\.(gif|webp|mp4)$/i,'').replace(/[-_]/g,' ');c.addEventListener('click',()=>setGifBg(file));bpBg.appendChild(c);});}}
+
+/* ====== STUDY HUB NAVIGATION ====== */
+function openStudyHub(){
+  saveClockState();broadcastTimerState();
+  window.location.href = 'streak.html' + window.location.search;
+}
+
+/* ====== EVENT LISTENERS ====== */
+document.getElementById('play-btn').addEventListener('click', toggleTimer);
+document.getElementById('reset-btn').addEventListener('click', resetTimer);
+document.getElementById('skip-btn').addEventListener('click', skipSession);
+document.getElementById('layout-btn').addEventListener('click', cycleLayout);
+document.getElementById('hub-btn').addEventListener('click', openStudyHub);
+document.getElementById('deep-work-btn').addEventListener('click', enterDeepWork);
+document.getElementById('dw-exit-btn').addEventListener('click', exitDeepWork);
+document.getElementById('deep-exit-btn').addEventListener('click', toggleDeep);
+document.getElementById('amb-vol-slider').addEventListener('input', e=>setAmbientVolume(e.target.value));
+document.querySelectorAll('.pill').forEach(pill=>{
+  pill.addEventListener('click',()=>switchMode(pill.dataset.mode));
+});
+document.getElementById('bp-load-btn').addEventListener('click',()=>{
+  const v=document.getElementById('bp-yt-url').value.trim();
+  const inp=document.getElementById('yt-url-input');if(inp)inp.value=v;
+  loadYTUrl();
+});
+document.getElementById('bp-music-play-btn').addEventListener('click', ytTogglePlay);
+document.getElementById('bp-prev-btn').addEventListener('click', ytPrev);
+document.getElementById('bp-next-btn').addEventListener('click', ytNext);
+document.getElementById('bp-progress-bar').addEventListener('click', ytSeek);
+document.getElementById('bp-vol-slider').addEventListener('input', e=>ytSetVolume(e.target.value));
+
+window.addEventListener('beforeunload',()=>{saveClockState();if(!running)clearTimerBroadcast();});
+
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden&&running&&timerEndsAt){
+    remaining=Math.max(0,Math.floor((timerEndsAt-Date.now())/1000));
+    updateDisplay();broadcastTimerState();
+  }
+});
+
+/* ====== INIT ====== */
+document.addEventListener('DOMContentLoaded',()=>{
+  const restored=restoreClockState();
+
+  if(restored==='running'){
+    $label.textContent=MODES[currentMode].label;
+    if(deepWorkActive){
+      document.body.classList.add('deep-work-active','deep-mode');
+      ['main-nav','stats-bar'].forEach(id=>document.getElementById(id).classList.add('deep-hide'));
+      document.getElementById('deep-work-btn').classList.add('hidden');
+      document.getElementById('main-grid').classList.add('panel-hidden');
+      document.getElementById('side-panel').classList.add('deep-hidden');
+      document.getElementById('deep-work-status').classList.add('visible');
+    }
+    document.querySelectorAll('.pill').forEach(p=>p.classList.toggle('active',p.dataset.mode===currentMode));
+    document.getElementById('duration-mode-val').textContent=MODES[currentMode].label;
+    updateDots();updateDisplay();
+    running=true;$playBtn.textContent='II';$playBtn.classList.add('running');
+    showNotify('Timer restored — '+fmt(remaining)+' remaining.');
+    interval=setInterval(()=>{
+      const nowRemaining=Math.floor((timerEndsAt-Date.now())/1000);
+      if(nowRemaining<=0){
+        remaining=0;updateDisplay();clearInterval(interval);running=false;timerEndsAt=null;
+        localStorage.removeItem(NSL_CLOCK_KEY);broadcastTimerState();onSessionEnd();return;
+      }
+      remaining=nowRemaining;updateDisplay();broadcastTimerState();saveClockState();
+    },1000);
+    broadcastTimerState();
+  } else if(restored==='ended'){
+    showNotify('Session ended while away.');onSessionEnd();
+  } else {
+    updateDisplay();
+  }
+
+  updateStatsBar();
+  updateHubBtn();
+  updateDeepWorkBtn();
+  setInterval(updateStatsBar,10000);
+});
+</script>
+</body>
+</html>

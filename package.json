@@ -1,0 +1,1 @@
+{"name":"quietplace-reflections","version":"1.0.0","description":"","main":"discord-sdk.js","type":"commonjs","scripts":{"test":"echo \"Error: no test specified\" && exit 1","build:firebase":"node js/firebase-bundle.js"},"keywords":[],"author":"","license":"ISC","dependencies":{"@discord/embedded-app-sdk":"^2.5.0","esbuild":"^0.28.0","firebase":"^12.15.0"}}
