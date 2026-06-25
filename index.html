@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Focus · Nexus Study Lab</title>
   <link href="fonts/fonts.css" rel="stylesheet">
+  <link rel="icon" href="focus/icon1.png" type="image/png">
   <style>
     :root {
       --bg:#0b0905;--surface:rgba(255,235,200,0.04);--surface-hover:rgba(255,235,200,0.07);
@@ -1023,7 +1024,7 @@ function renderDecorOverlay(world){
   img.onload=()=>img.classList.add('visible');
   img.onerror=()=>img.classList.remove('visible');
   img.classList.remove('visible');
-  img.src=world.sanctuary?('sanctuary/stage-'+stage+'.png'):('worlds/'+world.id+'/stage-'+stage+'.png');
+  // img.src=world.sanctuary?('sanctuary/stage-'+stage+'.png'):('worlds/'+world.id+'/stage-'+stage+'.png');
 }
 function applyProgressionStage(){
   const stage=currentStage();
