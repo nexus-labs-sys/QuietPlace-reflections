@@ -16,6 +16,7 @@
     <meta property="og:title" content="QuietPlace">
     <meta property="og:description" content="Aesthetic Pomodoro Timer for focused work and study.">
     <meta property="og:image" content="https://quietplace.space/icon1.png">
+    
   <style>
     :root {
       --bg:#0b0905;--surface:rgba(255,235,200,0.04);--surface-hover:rgba(255,235,200,0.07);
@@ -399,7 +400,7 @@
   </style>
 </head>
 <body class="layout-side">
-
+<a href="discord-debug.html" style="position:fixed;top:8px;right:8px;z-index:99999;background:#000;color:#e8a060;padding:6px 10px;border-radius:6px;font-size:11px;text-decoration:none">DEBUG</a>
 <img id="bg-media" src="" alt="" aria-hidden="true">
 <video id="bg-video" muted loop playsinline></video>
 <img id="progression-decor" src="" alt="" aria-hidden="true">
@@ -820,7 +821,7 @@ const WEATHER_TYPES=[
 
 /* ---- COMPANIONS ---- */
 const COMPANIONS=[
-  {id:'sleeping-cat',title:'Sleeping Cat',file:'companions/sleeping-cat.webm',position:{side:'bottom-left'},unlock:{type:'always'}},
+  {id:'sleeping-cat',title:'Sleeping Cat',file:'companions/37eeb8e727e247cd8766f01467a79186.webm',position:{side:'bottom-left'},unlock:{type:'always'}},
   {id:'reading-owl',title:'Reading Owl',file:'companions/reading-owl.webm',position:{side:'top-right'},unlock:{type:'hours',value:5}},
   {id:'fireplace-fox',title:'Fireplace Fox',file:'companions/fireplace-fox.webm',position:{side:'bottom-right'},unlock:{type:'hours',value:12}},
   {id:'study-robot',title:'Study Robot',file:'companions/study-robot.webm',position:{side:'bottom-left'},unlock:{type:'streak',value:5}}
