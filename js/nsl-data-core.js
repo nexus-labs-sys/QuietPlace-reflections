@@ -283,7 +283,7 @@ async function nslSyncFromFirestore() {
       } else {
         const cached = JSON.parse(localStorage.getItem('nsl_user') || 'null');
         if (!cached) {
-          window.location.href = nslPreserveDiscordParams('login.html');
+          window.location.href = nslPreserveDiscordParams('index.html');
           return;
         }
         _uid = null;
@@ -303,7 +303,7 @@ function handleLogout() {
     localStorage.removeItem(NSL_UID_KEY);
     document.body.style.transition = 'opacity 0.5s ease';
     document.body.style.opacity = '0';
-    setTimeout(() => { window.location.href = nslPreserveDiscordParams('login.html'); }, 520);
+    setTimeout(() => { window.location.href = nslPreserveDiscordParams('app.html'); }, 520);
   };
   if (window._nslSignOut) window._nslSignOut().then(doRedirect).catch(doRedirect);
   else doRedirect();
