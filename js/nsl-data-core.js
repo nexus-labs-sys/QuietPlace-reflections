@@ -25,16 +25,21 @@ if (IS_DISCORD && window.DiscordSDKLib && window.DiscordSDKLib.patchUrlMappings)
 }
 /* ---- DISCORD PARAM PRESERVATION ---- */
 const NSL_BOOT_PARAMS = new URLSearchParams(window.location.search);
-const NSL_FRAME_ID = NSL_BOOT_PARAMS.get('frame_id') || NSL_BOOT_PARAMS.get('instance_id') || null;
+const NSL_FRAME_ID = NSL_BOOT_PARAMS.get('frame_id') || null;
+const NSL_INSTANCE_ID = NSL_BOOT_PARAMS.get('instance_id') || NSL_FRAME_ID || null;
 
 function nslPreserveDiscordParams(targetUrl) {
-  if (!NSL_FRAME_ID) return targetUrl;
+  if (!NSL_FRAME_ID && !NSL_INSTANCE_ID) return targetUrl;
   const sep = targetUrl.includes('?') ? '&' : '?';
-  return targetUrl + sep + 'frame_id=' + encodeURIComponent(NSL_FRAME_ID);
+  const parts = [];
+  if (NSL_FRAME_ID) parts.push('frame_id=' + encodeURIComponent(NSL_FRAME_ID));
+  if (NSL_INSTANCE_ID) parts.push('instance_id=' + encodeURIComponent(NSL_INSTANCE_ID));
+  return targetUrl + sep + parts.join('&');
 }
 
 window.nslPreserveDiscordParams = nslPreserveDiscordParams;
 window.NSL_FRAME_ID = NSL_FRAME_ID;
+window.NSL_INSTANCE_ID = NSL_INSTANCE_ID;
 /* ---- CONSTANTS ---- */
 const NSL_LEGACY_KEY = 'nsl_data';
 const NSL_KEY_PREFIX = 'nsl_data_';

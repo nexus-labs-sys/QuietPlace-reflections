@@ -625,9 +625,7 @@
 console.log("BUILD_TEST_2026_06_18_v1");
 const startupParams = new URLSearchParams(window.location.search);
 
-const DISCORD_INSTANCE_ID =
-  startupParams.get("frame_id") ||
-  startupParams.get("instance_id");
+const DISCORD_INSTANCE_ID = startupParams.get("frame_id") || startupParams.get("instance_id");
 const IS_DISCORD =
   window.location.hostname.includes("discordsays.com") ||
   window.self !== window.top ||
@@ -749,7 +747,7 @@ try {
 
 try {
   setGateStatus("Connecting to Discord...");
-  
+
     console.log(
       "[NSL] before sdk.ready()"
     );
